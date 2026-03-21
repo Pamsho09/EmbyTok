@@ -10,5 +10,5 @@ services:
         VITE_EMBY_LIBRARY_ID: ${VITE_EMBY_LIBRARY_ID}
         VITE_EMBY_LIBRARY_NAME: ${VITE_EMBY_LIBRARY_NAME}
     ports:
-      - "8080:80"
+      - "1111:80"
     restart: unless-stopped
