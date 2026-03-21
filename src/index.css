@@ -1,0 +1,41 @@
+@import url('https://fonts.googleapis.com/css2?family=Sora:wght@300;400;500;600&family=Space+Grotesk:wght@400;600&display=swap');
+
+:root {
+  --surface: #0a0b0f;
+  --surface-elevated: #111320;
+  --text-primary: #f5f6fb;
+  --text-secondary: #a3a9c2;
+  --border-subtle: rgba(255, 255, 255, 0.08);
+  --danger: #f87171;
+  --display: 'Space Grotesk', 'Sora', system-ui;
+  --body: 'Sora', system-ui;
+  --topbar-height: 64px;
+  font-family: var(--body);
+  color: var(--text-primary);
+  background: var(--surface);
+  font-synthesis: none;
+  text-rendering: optimizeLegibility;
+  -webkit-font-smoothing: antialiased;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  overscroll-behavior: none;
+  background: radial-gradient(circle at top, rgba(60, 42, 95, 0.5), transparent 45%),
+    radial-gradient(circle at 20% 40%, rgba(49, 66, 120, 0.3), transparent 55%),
+    var(--surface);
+}
+
+#root {
+  min-height: 100svh;
+}
+
+button,
+input,
+select {
+  font-family: inherit;
+}

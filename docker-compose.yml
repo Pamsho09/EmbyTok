@@ -1,0 +1,14 @@
+services:
+  embytok:
+    build:
+      context: .
+      args:
+        VITE_EMBY_SERVER_URL: ${VITE_EMBY_SERVER_URL}
+        VITE_EMBY_API_KEY: ${VITE_EMBY_API_KEY}
+        VITE_EMBY_ACCESS_TOKEN: ${VITE_EMBY_ACCESS_TOKEN}
+        VITE_EMBY_USER_ID: ${VITE_EMBY_USER_ID}
+        VITE_EMBY_LIBRARY_ID: ${VITE_EMBY_LIBRARY_ID}
+        VITE_EMBY_LIBRARY_NAME: ${VITE_EMBY_LIBRARY_NAME}
+    ports:
+      - "8080:80"
+    restart: unless-stopped
