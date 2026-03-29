@@ -29,11 +29,8 @@ export default function App() {
     }
   }, [isReady, location.pathname, navigate])
 
-  useEffect(() => {
-    setIsMenuOpen(false)
-  }, [location.pathname])
-
   const handleProfileSelect = (profileName: string) => {
+    setIsMenuOpen(false)
     navigate(`/folder/${encodeURIComponent(profileName)}`)
   }
 
@@ -58,18 +55,21 @@ export default function App() {
           <NavLink
             to="/feed"
             className={({ isActive }: { isActive: boolean }) => (isActive ? 'active' : '')}
+            onClick={() => setIsMenuOpen(false)}
           >
             Feed
           </NavLink>
           <NavLink
             to="/profile"
             className={({ isActive }: { isActive: boolean }) => (isActive ? 'active' : '')}
+            onClick={() => setIsMenuOpen(false)}
           >
             Perfil
           </NavLink>
           <NavLink
             to="/settings"
             className={({ isActive }: { isActive: boolean }) => (isActive ? 'active' : '')}
+            onClick={() => setIsMenuOpen(false)}
           >
             Configuracion
           </NavLink>

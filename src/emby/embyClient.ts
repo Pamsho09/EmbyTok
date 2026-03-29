@@ -47,6 +47,7 @@ export type EmbyClient = {
     parentId: string
     startIndex: number
     limit: number
+    randomize?: boolean
   }) => Promise<EmbyItemsResponse>
   getLibraries: () => Promise<EmbyLibraryDto[]>
   getFolders: (params: {
@@ -57,6 +58,7 @@ export type EmbyClient = {
   getItemImageUrl: (id: string, maxWidth?: number) => string
   getItemBackdropUrl: (id: string, maxWidth?: number) => string
   getVideoStreamUrl: (id: string) => string
+  deleteItem: (id: string) => Promise<void>
 }
 
 export const createEmbyClient = (config: EmbyConfig): EmbyClient => {
@@ -64,7 +66,7 @@ export const createEmbyClient = (config: EmbyConfig): EmbyClient => {
   const authHeaders = createAuthHeaders(config.accessToken)
 
   return {
-    getItems: async ({ parentId, startIndex, limit }) => {
+    getItems: async ({ parentId, startIndex, limit, randomize = false }) => {
       const query = new URLSearchParams({
         Recursive: 'true',
         IncludeItemTypes: 'Movie,Video',
@@ -72,6 +74,11 @@ export const createEmbyClient = (config: EmbyConfig): EmbyClient => {
         Limit: String(limit),
         Fields: 'Overview,ParentId,RunTimeTicks,ImageTags,MediaStreams,Path',
       })
+
+      if (randomize) {
+        query.set('SortBy', 'Random')
+        query.set('SortOrder', 'Ascending')
+      }
 
       if (parentId) {
         query.set('ParentId', parentId)
@@ -156,6 +163,23 @@ export const createEmbyClient = (config: EmbyConfig): EmbyClient => {
       })
       addApiKey(query, config.apiKey, config.accessToken)
       return buildUrl(baseUrl, `/Videos/${id}/stream`, query)
+    },
+    deleteItem: async (id) => {
+      const query = new URLSearchParams()
+      addApiKey(query, config.apiKey, config.accessToken)
+
+      const url = buildUrl(baseUrl, `/Items/${id}`, query)
+      const res = await fetch(url, {
+        method: 'DELETE',
+        headers: {
+          ...authHeaders,
+        },
+      })
+
+      if (!res.ok) {
+        const message = await res.text()
+        throw new Error(message || `Emby request failed (${res.status})`)
+      }
     },
   }
 }
