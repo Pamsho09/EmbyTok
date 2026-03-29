@@ -17,9 +17,12 @@ export default function EmbyVideoFeed({
   onProfileSelect,
 }: EmbyVideoFeedProps) {
   const [activeId, setActiveId] = useState<string | null>(null)
+  const [pendingDeleteItem, setPendingDeleteItem] = useState<string | null>(null)
+  const [deleteError, setDeleteError] = useState<string | null>(null)
+  const [isDeleting, setIsDeleting] = useState(false)
   const sentinelRef = useRef<HTMLDivElement | null>(null)
 
-  const { items, isLoading, hasMore, error, loadMore } = useInfiniteEmbyFeed({
+  const { items, isLoading, hasMore, error, loadMore, removeItem } = useInfiniteEmbyFeed({
     client,
     libraryId,
     libraryName,
@@ -35,6 +38,11 @@ export default function EmbyVideoFeed({
   )
 
   const showSkeletons = useMemo(() => isLoading && items.length === 0, [isLoading, items.length])
+
+  const pendingItem = useMemo(
+    () => items.find((item) => item.id === pendingDeleteItem) ?? null,
+    [items, pendingDeleteItem],
+  )
 
   useEffect(() => {
     const element = sentinelRef.current
@@ -55,6 +63,59 @@ export default function EmbyVideoFeed({
     observer.observe(element)
     return () => observer.disconnect()
   }, [hasMore, loadMore])
+
+  useEffect(() => {
+    if (!activeId || items.some((item) => item.id === activeId)) {
+      return
+    }
+
+    setActiveId(items[0]?.id ?? null)
+  }, [activeId, items])
+
+  const closeDeleteModal = useCallback(() => {
+    if (isDeleting) {
+      return
+    }
+
+    setPendingDeleteItem(null)
+    setDeleteError(null)
+  }, [isDeleting])
+
+  const handleDeleteConfirm = useCallback(async () => {
+    if (!client || !pendingItem) {
+      return
+    }
+
+    try {
+      setIsDeleting(true)
+      setDeleteError(null)
+      await client.deleteItem(pendingItem.id)
+      removeItem(pendingItem.id)
+      setPendingDeleteItem(null)
+      if (activeId === pendingItem.id) {
+        setActiveId(null)
+      }
+    } catch (err) {
+      setDeleteError(err instanceof Error ? err.message : 'No se pudo eliminar el contenido')
+    } finally {
+      setIsDeleting(false)
+    }
+  }, [activeId, client, pendingItem, removeItem])
+
+  useEffect(() => {
+    if (!pendingItem) {
+      return
+    }
+
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') {
+        closeDeleteModal()
+      }
+    }
+
+    window.addEventListener('keydown', handleKeyDown)
+    return () => window.removeEventListener('keydown', handleKeyDown)
+  }, [closeDeleteModal, pendingItem])
 
   if (!client || !libraryId) {
     return (
@@ -82,6 +143,10 @@ export default function EmbyVideoFeed({
           isNearActive={Math.abs(index - activeIndex) <= 1}
           onActive={handleActive}
           onProfileSelect={onProfileSelect ?? (() => {})}
+          onDelete={(nextItem) => {
+            setPendingDeleteItem(nextItem.id)
+            setDeleteError(null)
+          }}
         />
       ))}
 
@@ -90,6 +155,38 @@ export default function EmbyVideoFeed({
         <div className="feed__loading">Cargando mas videos...</div>
       ) : null}
       <div ref={sentinelRef} className="feed__sentinel" />
+
+      {pendingItem ? (
+        <div className="modal" role="presentation" onClick={closeDeleteModal}>
+          <div
+            className="modal__dialog"
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="delete-modal-title"
+            aria-describedby="delete-modal-description"
+            onClick={(event) => event.stopPropagation()}
+          >
+            <h2 id="delete-modal-title">Eliminar contenido</h2>
+            <p id="delete-modal-description">
+              Vas a eliminar <strong>{pendingItem.name}</strong> de Emby. Esta acción no se puede deshacer.
+            </p>
+            {deleteError ? <div className="modal__error">{deleteError}</div> : null}
+            <div className="modal__actions">
+              <button type="button" className="button" onClick={closeDeleteModal} disabled={isDeleting}>
+                Cancelar
+              </button>
+              <button
+                type="button"
+                className="button button--danger"
+                onClick={handleDeleteConfirm}
+                disabled={isDeleting}
+              >
+                {isDeleting ? 'Eliminando...' : 'Eliminar'}
+              </button>
+            </div>
+          </div>
+        </div>
+      ) : null}
     </section>
   )
 }

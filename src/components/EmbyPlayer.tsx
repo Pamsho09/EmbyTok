@@ -13,11 +13,12 @@ export default function EmbyPlayer({ src, poster, isActive, isNearActive }: Emby
   const [hasError, setHasError] = useState(false)
   const [isVertical, setIsVertical] = useState(true)
   const [isFull, setIsFull] = useState(false)
-  const [currentSrc, setCurrentSrc] = useState('')
   const [currentTime, setCurrentTime] = useState(0)
   const [duration, setDuration] = useState(0)
   const [isPaused, setIsPaused] = useState(false)
   const [showError, setShowError] = useState(false)
+
+  const activeSrc = isActive || isNearActive ? src : ''
 
   const seekBy = (delta: number) => {
     const video = videoRef.current
@@ -36,9 +37,6 @@ export default function EmbyPlayer({ src, poster, isActive, isNearActive }: Emby
     }
 
     if (isActive || isNearActive) {
-      if (currentSrc !== src) {
-        setCurrentSrc(src)
-      }
       if (isActive) {
         const playPromise = video.play()
         if (playPromise) {
@@ -47,20 +45,13 @@ export default function EmbyPlayer({ src, poster, isActive, isNearActive }: Emby
             setShowError(true)
           })
         }
-        setIsPaused(false)
       }
     } else {
       video.pause()
-      if (currentSrc) {
-        setCurrentSrc('')
-        video.removeAttribute('src')
-        video.load()
-      }
-      setCurrentTime(0)
-      setDuration(0)
-      setIsPaused(false)
+      video.removeAttribute('src')
+      video.load()
     }
-  }, [currentSrc, isActive, isNearActive, src])
+  }, [isActive, isNearActive, src])
 
   const togglePlay = () => {
     const video = videoRef.current
@@ -72,10 +63,8 @@ export default function EmbyPlayer({ src, poster, isActive, isNearActive }: Emby
         setHasError(true)
         setShowError(true)
       })
-      setIsPaused(false)
     } else {
       video.pause()
-      setIsPaused(true)
     }
   }
 
@@ -112,7 +101,7 @@ export default function EmbyPlayer({ src, poster, isActive, isNearActive }: Emby
       <video
         ref={videoRef}
         className="player__video"
-        src={currentSrc}
+        src={activeSrc}
         poster={poster}
         muted={isMuted}
         playsInline
@@ -124,6 +113,12 @@ export default function EmbyPlayer({ src, poster, isActive, isNearActive }: Emby
             setIsVertical(target.videoHeight >= target.videoWidth)
           }
           setDuration(target.duration || 0)
+        }}
+        onPlay={() => {
+          setIsPaused(false)
+        }}
+        onPause={() => {
+          setIsPaused(true)
         }}
         onTimeUpdate={(event) => {
           setCurrentTime(event.currentTarget.currentTime)

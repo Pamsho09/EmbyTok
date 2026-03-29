@@ -16,30 +16,30 @@ export const useInfiniteEmbyFeed = ({
   libraryName,
   pageSize = 8,
 }: UseInfiniteEmbyFeedParams) => {
-  const [items, setItems] = useState<EmbyItem[]>([])
+  const [allItems, setAllItems] = useState<EmbyItem[]>([])
   const [cursor, setCursor] = useState(0)
-  const [hasMore, setHasMore] = useState(true)
   const [isLoading, setIsLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
-  const shuffle = <T,>(list: T[]) => {
-    const copy = [...list]
-    for (let i = copy.length - 1; i > 0; i -= 1) {
-      const j = Math.floor(Math.random() * (i + 1))
-      ;[copy[i], copy[j]] = [copy[j], copy[i]]
-    }
-    return copy
-  }
-
   useEffect(() => {
-    setItems([])
+    setAllItems([])
     setCursor(0)
-    setHasMore(true)
     setError(null)
   }, [client, libraryId])
 
   useEffect(() => {
-    if (!client || !libraryId || !hasMore) {
+    setCursor((current) => {
+      if (allItems.length === 0) {
+        return 0
+      }
+
+      const target = Math.min(pageSize, allItems.length)
+      return Math.min(Math.max(current, target), allItems.length)
+    })
+  }, [allItems.length, pageSize])
+
+  useEffect(() => {
+    if (!client || !libraryId) {
       return
     }
 
@@ -47,10 +47,29 @@ export const useInfiniteEmbyFeed = ({
     const load = async () => {
       try {
         setIsLoading(true)
+        const countResponse = await client.getItems({
+          parentId: libraryId,
+          startIndex: 0,
+          limit: 1,
+          randomize: true,
+        })
+
+        if (isCancelled) {
+          return
+        }
+
+        if (countResponse.TotalRecordCount === 0) {
+          setAllItems([])
+          setCursor(0)
+          setError(null)
+          return
+        }
+
         const response = await client.getItems({
           parentId: libraryId,
-          startIndex: cursor,
-          limit: pageSize,
+          startIndex: 0,
+          limit: countResponse.TotalRecordCount,
+          randomize: true,
         })
 
         if (isCancelled) {
@@ -66,10 +85,8 @@ export const useInfiniteEmbyFeed = ({
           }),
         )
 
-        const randomized = shuffle(mapped)
-
-        setItems((prev) => (cursor === 0 ? randomized : [...prev, ...randomized]))
-        setHasMore(cursor + mapped.length < response.TotalRecordCount)
+        setAllItems(mapped)
+        setCursor(Math.min(pageSize, mapped.length))
         setError(null)
       } catch (err) {
         if (!isCancelled) {
@@ -86,14 +103,21 @@ export const useInfiniteEmbyFeed = ({
     return () => {
       isCancelled = true
     }
-  }, [client, libraryId, libraryName, cursor, pageSize, hasMore])
+  }, [client, libraryId, libraryName, pageSize])
 
   const loadMore = useCallback(() => {
-    if (isLoading || !hasMore) {
+    if (isLoading || cursor >= allItems.length) {
       return
     }
-    setCursor((prev) => prev + pageSize)
-  }, [hasMore, isLoading, pageSize])
+    setCursor((prev) => Math.min(prev + pageSize, allItems.length))
+  }, [allItems.length, cursor, isLoading, pageSize])
+
+  const removeItem = useCallback((id: string) => {
+    setAllItems((prev) => prev.filter((item) => item.id !== id))
+  }, [])
+
+  const items = allItems.slice(0, cursor)
+  const hasMore = cursor < allItems.length
 
   return {
     items,
@@ -101,5 +125,6 @@ export const useInfiniteEmbyFeed = ({
     hasMore,
     error,
     loadMore,
+    removeItem,
   }
 }

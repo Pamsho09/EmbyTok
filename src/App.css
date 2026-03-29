@@ -201,6 +201,23 @@
   height: 22px;
 }
 
+.video-card__delete {
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  border: 1px solid rgba(255, 255, 255, 0.18);
+  background: rgba(0, 0, 0, 0.35);
+  color: #fff;
+  display: inline-grid;
+  place-items: center;
+  cursor: pointer;
+}
+
+.video-card__delete svg {
+  width: 18px;
+  height: 18px;
+}
+
 .sr-only {
   position: absolute;
   width: 1px;
@@ -232,11 +249,25 @@
   z-index: 30;
   display: grid;
   gap: 8px;
+  pointer-events: auto;
 }
 
 .player__range {
   width: 100%;
   appearance: none;
+  height: 20px;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.3);
+  touch-action: pan-x;
+}
+
+.player__range::-webkit-slider-runnable-track {
+  height: 4px;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.3);
+}
+
+.player__range::-moz-range-track {
   height: 4px;
   border-radius: 999px;
   background: rgba(255, 255, 255, 0.3);
@@ -265,6 +296,48 @@
   font-size: 12px;
   color: rgba(255, 255, 255, 0.75);
   text-align: right;
+}
+
+.modal {
+  position: fixed;
+  inset: 0;
+  z-index: 80;
+  display: grid;
+  place-items: center;
+  padding: 20px;
+  background: rgba(2, 4, 10, 0.72);
+  backdrop-filter: blur(10px);
+}
+
+.modal__dialog {
+  width: min(420px, 100%);
+  border-radius: 24px;
+  background: rgba(14, 16, 24, 0.98);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  padding: 24px;
+  display: grid;
+  gap: 16px;
+}
+
+.modal__dialog h2 {
+  margin: 0;
+  font-family: var(--display);
+}
+
+.modal__dialog p {
+  margin: 0;
+  color: var(--text-secondary);
+}
+
+.modal__actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 12px;
+}
+
+.modal__error {
+  color: var(--danger);
+  font-size: 14px;
 }
 
 .video-card__overlay {
@@ -519,6 +592,12 @@
   color: #fff;
 }
 
+.button--danger {
+  background: rgba(248, 113, 113, 0.16);
+  border-color: rgba(248, 113, 113, 0.32);
+  color: #ffd6d6;
+}
+
 .skeleton {
   background: linear-gradient(120deg, rgba(34, 38, 52, 0.6), rgba(34, 38, 52, 0.2));
   animation: pulse 1.2s infinite ease-in-out;
@@ -539,6 +618,46 @@
 @media (min-width: 960px) {
   .video-card__overlay {
     width: min(560px, 50vw);
+  }
+}
+
+@media (max-width: 640px) {
+  .player__controls {
+    right: 12px;
+    bottom: 104px;
+    gap: 10px;
+  }
+
+  .player__button {
+    width: 40px;
+    height: 40px;
+  }
+
+  .player__timeline {
+    left: 12px;
+    right: 12px;
+    bottom: 12px;
+  }
+
+  .player__range {
+    height: 24px;
+  }
+
+  .player__range::-webkit-slider-thumb {
+    width: 18px;
+    height: 18px;
+  }
+
+  .player__range::-moz-range-thumb {
+    width: 18px;
+    height: 18px;
+  }
+
+  .video-card__overlay {
+    left: 12px;
+    right: 12px;
+    bottom: 16px;
+    width: auto;
   }
 }
 .folder {

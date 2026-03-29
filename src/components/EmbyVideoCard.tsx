@@ -9,6 +9,7 @@ type EmbyVideoCardProps = {
   isNearActive: boolean
   onActive: (id: string) => void
   onProfileSelect: (profileName: string) => void
+  onDelete: (item: EmbyItem) => void
 }
 
 export default function EmbyVideoCard({
@@ -17,6 +18,7 @@ export default function EmbyVideoCard({
   isNearActive,
   onActive,
   onProfileSelect,
+  onDelete,
 }: EmbyVideoCardProps) {
   const cardRef = useRef<HTMLDivElement | null>(null)
 
@@ -70,6 +72,24 @@ export default function EmbyVideoCard({
               {truncate(item.profileName)}
             </button>
           ) : null}
+          <button
+            className="video-card__delete"
+            type="button"
+            onClick={() => onDelete(item)}
+            aria-label={`Eliminar ${item.name}`}
+          >
+            <span className="sr-only">Eliminar contenido</span>
+            <svg viewBox="0 0 24 24" aria-hidden="true">
+              <path
+                d="M9 3h6m-8 4h10m-9 0v11m4-11v11m-7-11h14l-1 14H7L6 7z"
+                stroke="currentColor"
+                strokeWidth="1.8"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                fill="none"
+              />
+            </svg>
+          </button>
           <div className="video-card__title">{truncate(item.name)}</div>
           {item.overview ? (
             <p className="video-card__overview">{item.overview}</p>
