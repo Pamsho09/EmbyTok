@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from 'react'
+import type { PointerEvent as ReactPointerEvent } from 'react'
 
 type EmbyPlayerProps = {
   src: string
@@ -9,6 +10,8 @@ type EmbyPlayerProps = {
 
 export default function EmbyPlayer({ src, poster, isActive, isNearActive }: EmbyPlayerProps) {
   const videoRef = useRef<HTMLVideoElement | null>(null)
+  const tapStartRef = useRef<{ x: number; y: number; time: number } | null>(null)
+  const tapFeedbackTimerRef = useRef<number | null>(null)
   const [isMuted, setIsMuted] = useState(true)
   const [hasError, setHasError] = useState(false)
   const [isVertical, setIsVertical] = useState(true)
@@ -17,6 +20,8 @@ export default function EmbyPlayer({ src, poster, isActive, isNearActive }: Emby
   const [duration, setDuration] = useState(0)
   const [isPaused, setIsPaused] = useState(false)
   const [showError, setShowError] = useState(false)
+  const [isBuffering, setIsBuffering] = useState(false)
+  const [tapFeedback, setTapFeedback] = useState<'play' | 'pause' | null>(null)
 
   const activeSrc = isActive || isNearActive ? src : ''
 
@@ -50,8 +55,28 @@ export default function EmbyPlayer({ src, poster, isActive, isNearActive }: Emby
       video.pause()
       video.removeAttribute('src')
       video.load()
+      setIsBuffering(false)
     }
   }, [isActive, isNearActive, src])
+
+  const flashTapFeedback = (kind: 'play' | 'pause') => {
+    setTapFeedback(kind)
+    if (tapFeedbackTimerRef.current) {
+      window.clearTimeout(tapFeedbackTimerRef.current)
+    }
+    tapFeedbackTimerRef.current = window.setTimeout(() => {
+      setTapFeedback(null)
+      tapFeedbackTimerRef.current = null
+    }, 520)
+  }
+
+  useEffect(() => {
+    return () => {
+      if (tapFeedbackTimerRef.current) {
+        window.clearTimeout(tapFeedbackTimerRef.current)
+      }
+    }
+  }, [])
 
   const togglePlay = () => {
     const video = videoRef.current
@@ -59,13 +84,37 @@ export default function EmbyPlayer({ src, poster, isActive, isNearActive }: Emby
       return
     }
     if (video.paused) {
+      flashTapFeedback('play')
       video.play().catch(() => {
         setHasError(true)
         setShowError(true)
       })
     } else {
+      flashTapFeedback('pause')
       video.pause()
     }
+  }
+
+  const handlePointerDown = (event: ReactPointerEvent<HTMLVideoElement>) => {
+    tapStartRef.current = { x: event.clientX, y: event.clientY, time: Date.now() }
+  }
+
+  const handlePointerUp = (event: ReactPointerEvent<HTMLVideoElement>) => {
+    const start = tapStartRef.current
+    tapStartRef.current = null
+    if (!start || !isActive) {
+      return
+    }
+    const dx = Math.abs(event.clientX - start.x)
+    const dy = Math.abs(event.clientY - start.y)
+    const dt = Date.now() - start.time
+    if (dx < 10 && dy < 10 && dt < 350) {
+      togglePlay()
+    }
+  }
+
+  const handlePointerCancel = () => {
+    tapStartRef.current = null
   }
 
   useEffect(() => {
@@ -107,6 +156,21 @@ export default function EmbyPlayer({ src, poster, isActive, isNearActive }: Emby
         playsInline
         loop
         preload={isActive ? 'auto' : 'metadata'}
+        onPointerDown={handlePointerDown}
+        onPointerUp={handlePointerUp}
+        onPointerCancel={handlePointerCancel}
+        onLoadStart={() => {
+          if (activeSrc) {
+            setIsBuffering(true)
+          }
+        }}
+        onWaiting={() => {
+          if (activeSrc) {
+            setIsBuffering(true)
+          }
+        }}
+        onCanPlay={() => setIsBuffering(false)}
+        onPlaying={() => setIsBuffering(false)}
         onLoadedMetadata={(event) => {
           const target = event.currentTarget
           if (target.videoWidth && target.videoHeight) {
@@ -126,8 +190,29 @@ export default function EmbyPlayer({ src, poster, isActive, isNearActive }: Emby
         onError={() => {
           setHasError(true)
           setShowError(true)
+          setIsBuffering(false)
         }}
       />
+      {isActive && isBuffering && !hasError ? (
+        <div className="player__spinner" role="status" aria-label="Cargando video">
+          <div className="player__spinner-ring" aria-hidden="true" />
+        </div>
+      ) : null}
+      {tapFeedback ? (
+        <div className="player__tap-feedback" aria-hidden="true">
+          <div className="player__tap-feedback-icon">
+            {tapFeedback === 'play' ? (
+              <svg viewBox="0 0 24 24">
+                <path d="M8 5l11 7-11 7z" fill="currentColor" />
+              </svg>
+            ) : (
+              <svg viewBox="0 0 24 24">
+                <path d="M7 5h4v14H7zM13 5h4v14h-4z" fill="currentColor" />
+              </svg>
+            )}
+          </div>
+        </div>
+      ) : null}
       {isActive ? (
         <div className="player__controls">
           <button
