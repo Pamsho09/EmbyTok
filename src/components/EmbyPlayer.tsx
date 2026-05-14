@@ -1,5 +1,4 @@
 import { useEffect, useRef, useState } from 'react'
-import type { PointerEvent as ReactPointerEvent } from 'react'
 
 type EmbyPlayerProps = {
   src: string
@@ -8,10 +7,11 @@ type EmbyPlayerProps = {
   isNearActive: boolean
 }
 
-export default function EmbyPlayer({ src, poster, isActive, isNearActive }: EmbyPlayerProps) {
+export default function EmbyPlayer({ src, poster, isActive }: EmbyPlayerProps) {
   const videoRef = useRef<HTMLVideoElement | null>(null)
   const tapStartRef = useRef<{ x: number; y: number; time: number } | null>(null)
   const tapFeedbackTimerRef = useRef<number | null>(null)
+  const [hasStarted, setHasStarted] = useState(false)
   const [isMuted, setIsMuted] = useState(true)
   const [hasError, setHasError] = useState(false)
   const [isVertical, setIsVertical] = useState(true)
@@ -23,41 +23,45 @@ export default function EmbyPlayer({ src, poster, isActive, isNearActive }: Emby
   const [isBuffering, setIsBuffering] = useState(false)
   const [tapFeedback, setTapFeedback] = useState<'play' | 'pause' | null>(null)
 
-  const activeSrc = isActive || isNearActive ? src : ''
+  // Only assign src once the user has explicitly started the video
+  const activeSrc = hasStarted && isActive ? src : undefined
+
+  // Cleanup when card scrolls out of view
+  useEffect(() => {
+    if (isActive) return
+    setHasStarted(false)
+    setHasError(false)
+    setShowError(false)
+    setIsBuffering(false)
+    const video = videoRef.current
+    if (video) {
+      video.pause()
+      video.removeAttribute('src')
+      video.load()
+    }
+  }, [isActive])
+
+  // Start playback when user requests it
+  useEffect(() => {
+    if (!hasStarted || !isActive) return
+    const video = videoRef.current
+    if (!video) return
+    const playPromise = video.play()
+    if (playPromise) {
+      playPromise.catch(() => {
+        setHasError(true)
+        setShowError(true)
+      })
+    }
+  }, [hasStarted, isActive])
 
   const seekBy = (delta: number) => {
     const video = videoRef.current
-    if (!video) {
-      return
-    }
+    if (!video) return
     const nextTime = Math.min(Math.max(0, video.currentTime + delta), duration || video.duration || 0)
     video.currentTime = nextTime
     setCurrentTime(nextTime)
   }
-
-  useEffect(() => {
-    const video = videoRef.current
-    if (!video) {
-      return
-    }
-
-    if (isActive || isNearActive) {
-      if (isActive) {
-        const playPromise = video.play()
-        if (playPromise) {
-          playPromise.catch(() => {
-            setHasError(true)
-            setShowError(true)
-          })
-        }
-      }
-    } else {
-      video.pause()
-      video.removeAttribute('src')
-      video.load()
-      setIsBuffering(false)
-    }
-  }, [isActive, isNearActive, src])
 
   const flashTapFeedback = (kind: 'play' | 'pause') => {
     setTapFeedback(kind)
@@ -80,9 +84,7 @@ export default function EmbyPlayer({ src, poster, isActive, isNearActive }: Emby
 
   const togglePlay = () => {
     const video = videoRef.current
-    if (!video) {
-      return
-    }
+    if (!video) return
     if (video.paused) {
       flashTapFeedback('play')
       video.play().catch(() => {
@@ -95,16 +97,14 @@ export default function EmbyPlayer({ src, poster, isActive, isNearActive }: Emby
     }
   }
 
-  const handlePointerDown = (event: ReactPointerEvent<HTMLVideoElement>) => {
+  const handlePointerDown = (event: React.PointerEvent<HTMLVideoElement>) => {
     tapStartRef.current = { x: event.clientX, y: event.clientY, time: Date.now() }
   }
 
-  const handlePointerUp = (event: ReactPointerEvent<HTMLVideoElement>) => {
+  const handlePointerUp = (event: React.PointerEvent<HTMLVideoElement>) => {
     const start = tapStartRef.current
     tapStartRef.current = null
-    if (!start || !isActive) {
-      return
-    }
+    if (!start || !isActive || !hasStarted) return
     const dx = Math.abs(event.clientX - start.x)
     const dy = Math.abs(event.clientY - start.y)
     const dt = Date.now() - start.time
@@ -118,19 +118,13 @@ export default function EmbyPlayer({ src, poster, isActive, isNearActive }: Emby
   }
 
   useEffect(() => {
-    if (!showError) {
-      return
-    }
-    const timer = window.setTimeout(() => {
-      setShowError(false)
-    }, 5000)
+    if (!showError) return
+    const timer = window.setTimeout(() => setShowError(false), 5000)
     return () => window.clearTimeout(timer)
   }, [showError])
 
   const formatTime = (value: number) => {
-    if (!Number.isFinite(value) || value <= 0) {
-      return '0:00'
-    }
+    if (!Number.isFinite(value) || value <= 0) return '0:00'
     const minutes = Math.floor(value / 60)
     const seconds = Math.floor(value % 60)
     return `${minutes}:${seconds.toString().padStart(2, '0')}`
@@ -155,20 +149,12 @@ export default function EmbyPlayer({ src, poster, isActive, isNearActive }: Emby
         muted={isMuted}
         playsInline
         loop
-        preload={isActive ? 'auto' : 'metadata'}
+        preload="none"
         onPointerDown={handlePointerDown}
         onPointerUp={handlePointerUp}
         onPointerCancel={handlePointerCancel}
-        onLoadStart={() => {
-          if (activeSrc) {
-            setIsBuffering(true)
-          }
-        }}
-        onWaiting={() => {
-          if (activeSrc) {
-            setIsBuffering(true)
-          }
-        }}
+        onLoadStart={() => setIsBuffering(true)}
+        onWaiting={() => setIsBuffering(true)}
         onCanPlay={() => setIsBuffering(false)}
         onPlaying={() => setIsBuffering(false)}
         onLoadedMetadata={(event) => {
@@ -178,26 +164,38 @@ export default function EmbyPlayer({ src, poster, isActive, isNearActive }: Emby
           }
           setDuration(target.duration || 0)
         }}
-        onPlay={() => {
-          setIsPaused(false)
-        }}
-        onPause={() => {
-          setIsPaused(true)
-        }}
-        onTimeUpdate={(event) => {
-          setCurrentTime(event.currentTarget.currentTime)
-        }}
+        onPlay={() => setIsPaused(false)}
+        onPause={() => setIsPaused(true)}
+        onTimeUpdate={(event) => setCurrentTime(event.currentTarget.currentTime)}
         onError={() => {
           setHasError(true)
           setShowError(true)
           setIsBuffering(false)
         }}
       />
-      {isActive && isBuffering && !hasError ? (
+
+      {/* Tap-to-play overlay: only when active and video not yet started */}
+      {isActive && !hasStarted ? (
+        <button
+          className="player__play-overlay"
+          type="button"
+          aria-label="Reproducir video"
+          onClick={() => setHasStarted(true)}
+        >
+          <div className="player__play-icon">
+            <svg viewBox="0 0 24 24" aria-hidden="true">
+              <path d="M8 5l11 7-11 7z" fill="currentColor" />
+            </svg>
+          </div>
+        </button>
+      ) : null}
+
+      {isActive && hasStarted && isBuffering && !hasError ? (
         <div className="player__spinner" role="status" aria-label="Cargando video">
           <div className="player__spinner-ring" aria-hidden="true" />
         </div>
       ) : null}
+
       {tapFeedback ? (
         <div className="player__tap-feedback" aria-hidden="true">
           <div className="player__tap-feedback-icon">
@@ -213,7 +211,8 @@ export default function EmbyPlayer({ src, poster, isActive, isNearActive }: Emby
           </div>
         </div>
       ) : null}
-      {isActive ? (
+
+      {isActive && hasStarted ? (
         <div className="player__controls">
           <button
             className="player__button"
@@ -241,10 +240,7 @@ export default function EmbyPlayer({ src, poster, isActive, isNearActive }: Emby
           >
             <span className="sr-only">{isMuted ? 'Unmute' : 'Mute'}</span>
             <svg viewBox="0 0 24 24" aria-hidden="true">
-              <path
-                d="M4 10v4h4l5 4V6L8 10H4z"
-                fill="currentColor"
-              />
+              <path d="M4 10v4h4l5 4V6L8 10H4z" fill="currentColor" />
               {isMuted ? (
                 <path
                   d="M16 9l4 4m0-4l-4 4"
@@ -317,7 +313,8 @@ export default function EmbyPlayer({ src, poster, isActive, isNearActive }: Emby
           </button>
         </div>
       ) : null}
-      {isActive ? (
+
+      {isActive && hasStarted ? (
         <div className="player__timeline">
           <input
             className="player__range"
@@ -339,6 +336,7 @@ export default function EmbyPlayer({ src, poster, isActive, isNearActive }: Emby
           </div>
         </div>
       ) : null}
+
       {hasError && showError ? (
         <div className="player__error">No se pudo reproducir este video.</div>
       ) : null}

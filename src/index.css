@@ -10,6 +10,7 @@
   --display: 'Space Grotesk', 'Sora', system-ui;
   --body: 'Sora', system-ui;
   --topbar-height: 64px;
+  --nav-height: 60px;
   font-family: var(--body);
   color: var(--text-primary);
   background: var(--surface);
